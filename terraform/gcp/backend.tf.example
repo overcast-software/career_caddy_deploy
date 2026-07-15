@@ -1,0 +1,18 @@
+# Remote state backend — copy to backend.tf and fill in your own bucket.
+#
+# Terraform state for this module contains GENERATED SECRETS (the Cloud SQL
+# password, Django SECRET_KEY, the full DATABASE_URL). It must live in a private,
+# versioned bucket you control — never on local disk, never committed. `backend.tf`
+# is gitignored for exactly this reason.
+#
+#   gsutil mb -l us-west1 gs://YOUR-TF-STATE-BUCKET
+#   gsutil versioning set on gs://YOUR-TF-STATE-BUCKET
+#   cp backend.tf.example backend.tf   # then edit the bucket name
+#   terraform init
+
+terraform {
+  backend "gcs" {
+    bucket = "YOUR-TF-STATE-BUCKET"
+    prefix = "career-caddy/gcp"
+  }
+}

@@ -1,0 +1,32 @@
+# ── Secrets — hard block. This repo is PUBLIC. ────────────────────────────
+# Never commit real credentials, keys, or terraform state.
+.env
+.env.*
+!.env.example
+
+# Terraform variable files hold real values (project ids, API keys) — only
+# the *.example templates are tracked.
+*.tfvars
+!*.tfvars.example
+
+# Terraform state is a plaintext secret store — never commit it.
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Terraform working dirs + lock/override files
+.terraform/
+.terraform.lock.hcl
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Backend config with a real bucket/prefix (template is backend.tf.example)
+backend.tf
+
+# ── OS / editor cruft ─────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*~

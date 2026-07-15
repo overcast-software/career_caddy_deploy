@@ -1,0 +1,103 @@
+---
+# Career Caddy — one-box quickstart.
+#
+# The smallest thing that runs the core product on a single machine using the
+# published images (no build, no cloud account). It gives you the job-hunt
+# tracking loop: create job-posts, log applications, move them through stages.
+#
+#   cp .env.example .env      # then set DB_PASSWORD + SECRET_KEY
+#   docker compose up -d
+#   open http://localhost:8080   # first run shows the setup wizard
+#
+# What this stack is NOT: the full "service tier" (browser scraping, AI
+# scoring, email triage, the SSE chat copilot). Those need extra services and
+# API keys — see terraform/ for how the maintainers run the hosted instance.
+
+name: careercaddy
+
+services:
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-job_hunting}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      # postgres 18+: mount the parent dir, not /data
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/overcast-software/career_caddy_api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # The image entrypoint runs `manage.py migrate` then gunicorn — no override.
+    environment:
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-job_hunting}
+      # Requests arrive via the proxy as Host: localhost; the healthcheck curls 127.0.0.1.
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8080}
+      # Same-origin via the proxy, so no cross-origin CORS is needed.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      INSTANCE_ORIGIN: ${INSTANCE_ORIGIN:-http://localhost:8080}
+      # Build the SQLAlchemy schema on migrate (single-node quickstart).
+      SA_SCHEMA_ON_POST_MIGRATE: "True"
+      # Service-tier features off: no scraper/browser, no async worker needed
+      # for the manual tracking loop.
+      SCRAPING_ENABLED: ${SCRAPING_ENABLED:-False}
+      USE_MCP_BROWSER_AGENT: "False"
+      # Email: log to the container console by default so no SMTP is required.
+      # Set the SMTP vars in .env to send real invite/reset mail.
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@localhost}
+      # Optional — only needed if you later enable AI features.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SCREENSHOT_DIR: /app/screenshots
+    volumes:
+      - screenshots:/app/screenshots
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+
+  frontend:
+    image: ghcr.io/overcast-software/career-caddy-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  # Tiny static reverse proxy → one origin for the SPA + API. See Caddyfile.
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - api
+      - frontend
+
+volumes:
+  postgres_data:
+  screenshots:
+  caddy_data:

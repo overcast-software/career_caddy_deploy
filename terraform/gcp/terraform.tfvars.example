@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored — it may
+# hold real values (project id, optional API keys). NEVER commit it.
+
+# GCP project to deploy into (must already exist; you need Owner/Editor on it).
+project_id = "your-gcp-project-id"
+
+# Apex domain you control. Verify it in Google Search Console under the same
+# account BEFORE applying, then point its A/AAAA records at the
+# `domain_mapping_records` output after apply.
+domain_name = "example.com"
+
+# Region for Cloud Run, Cloud SQL, and Cloud Tasks.
+region = "us-west1"
+
+# Region of the Artifact Registry repo holding the mirrored images. May differ
+# from `region` — Cloud Run pulls cross-region.
+ar_region = "us-central1"
+
+# Image tag deployed across all services. A git SHA pins an exact build.
+image_tag = "latest"
+
+# Cloud SQL sizing.
+# db_tier          = "db-f1-micro"
+# postgres_version = "POSTGRES_16"
+
+# Destroy guard — set true for a real prod instance.
+# deletion_protection = false
+
+# Optional AI keys. Left empty, the chat service starts but won't answer.
+# openai_api_key    = "sk-..."
+# anthropic_api_key = "sk-ant-..."

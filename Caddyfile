@@ -1,0 +1,33 @@
+# Single-origin reverse proxy for the one-box quickstart.
+#
+# The published frontend image serves the SPA built *same-origin*: it emits
+# /api/v1/... to its own host, so the API and the SPA must share one origin.
+# This proxy is what unifies them on http://localhost:8080 —
+#   /api/*                     -> the Django API
+#   /.well-known/webfinger,
+#   /actors/*, /activities/*   -> the API (ActivityPub federation lives at root)
+#   everything else            -> the SPA
+#
+# On the maintainers' hosted instance this job is done by caddy-docker-proxy /
+# a cloud load balancer; here it's a tiny static Caddyfile so `docker compose
+# up` gives you a working single URL with zero extra setup.
+
+:80 {
+	encode zstd gzip
+
+	# API — keep the /api prefix (Django routes on it).
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# ActivityPub federation endpoints live at root paths, not under /api.
+	@federation path /.well-known/webfinger /actors/* /activities/*
+	handle @federation {
+		reverse_proxy api:8000
+	}
+
+	# Everything else: the SPA.
+	handle {
+		reverse_proxy frontend:80
+	}
+}
