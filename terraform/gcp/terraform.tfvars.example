@@ -29,3 +29,10 @@ image_tag = "latest"
 # Optional AI keys. Left empty, the chat service starts but won't answer.
 # openai_api_key    = "sk-..."
 # anthropic_api_key = "sk-ant-..."
+
+# Outbound email (SMTP). Without email_host_password the api uses Django's
+# console backend and NO mail is sent (signup/welcome + admin-notify silently
+# no-op). Set the password (→ Secret Manager) to switch to real SMTP. Defaults:
+# email_host = "smtp.purelymail.com", email_port = 587, EMAIL_USE_TLS = True.
+# email_host_user     = "noreply@yourdomain"
+# email_host_password = "..."

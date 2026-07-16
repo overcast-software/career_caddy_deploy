@@ -43,11 +43,20 @@ locals {
       uses_db     = true
       health_path = "/api/v1/healthcheck/"
       environment = merge(local.django_common, {
-        CORS_ALLOWED_ORIGINS      = "https://${local.hosts.app}"
-        CSRF_TRUSTED_ORIGINS      = "https://${local.hosts.app}"
-        FRONTEND_URL              = "https://${local.hosts.app}"
-        INSTANCE_ORIGIN           = "https://${local.hosts.app}"
-        EMAIL_BACKEND             = "django.core.mail.backends.console.EmailBackend"
+        CORS_ALLOWED_ORIGINS = "https://${local.hosts.app}"
+        CSRF_TRUSTED_ORIGINS = "https://${local.hosts.app}"
+        FRONTEND_URL         = "https://${local.hosts.app}"
+        INSTANCE_ORIGIN      = "https://${local.hosts.app}"
+        # Real SMTP once email_host_password is supplied; until then fall back to
+        # the console backend so a missing password can't 500 a signup.
+        EMAIL_BACKEND   = var.email_host_password != "" ? "django.core.mail.backends.smtp.EmailBackend" : "django.core.mail.backends.console.EmailBackend"
+        EMAIL_HOST      = var.email_host
+        EMAIL_PORT      = tostring(var.email_port)
+        EMAIL_HOST_USER = var.email_host_user
+        EMAIL_USE_TLS   = "True"
+        # From-address must be a real Purelymail mailbox/alias or mail is rejected;
+        # default to the authenticated user, fall back to noreply@apex if unset.
+        DEFAULT_FROM_EMAIL        = var.email_host_user != "" ? var.email_host_user : "noreply@${local.base}"
         SCRAPING_ENABLED          = "False"
         USE_MCP_BROWSER_AGENT     = "False"
         GUNICORN_HOST             = "0.0.0.0" # bind all interfaces; Cloud Run probe can't reach 127.0.0.1
@@ -56,7 +65,7 @@ locals {
         SA_SCHEMA_ON_POST_MIGRATE = "True"
         SCREENSHOT_DIR            = "/tmp/screenshots"
       })
-      secret_keys = ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY"]
+      secret_keys = ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "EMAIL_HOST_PASSWORD"]
     }
     events = {
       image       = local.images.api

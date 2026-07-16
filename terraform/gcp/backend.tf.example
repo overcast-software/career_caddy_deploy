@@ -5,14 +5,43 @@
 # versioned bucket you control — never on local disk, never committed. `backend.tf`
 # is gitignored for exactly this reason.
 #
-#   gsutil mb -l us-west1 gs://YOUR-TF-STATE-BUCKET
-#   gsutil versioning set on gs://YOUR-TF-STATE-BUCKET
-#   cp backend.tf.example backend.tf   # then edit the bucket name
-#   terraform init
+# --- Career Caddy prod uses Wasabi (S3-compatible) -------------------------
+# Bucket: career-caddy.prod.tfstate (us-east-1, versioning ON), created with:
+#   aws --profile wasabi --endpoint-url https://s3.wasabisys.com s3 mb s3://career-caddy.prod.tfstate
+#   aws --profile wasabi --endpoint-url https://s3.wasabisys.com s3api \
+#     put-bucket-versioning --bucket career-caddy.prod.tfstate \
+#     --versioning-configuration Status=Enabled
+#   cp backend.tf.example backend.tf   # then edit as below
+#   tofu init -migrate-state
+#
+# Auth: locally via the `wasabi` aws profile (below); in CI set AWS_ACCESS_KEY_ID
+# / AWS_SECRET_ACCESS_KEY env from secrets and drop the `profile` line.
 
 terraform {
-  backend "gcs" {
-    bucket = "YOUR-TF-STATE-BUCKET"
-    prefix = "career-caddy/gcp"
+  backend "s3" {
+    bucket = "career-caddy.prod.tfstate"
+    key    = "career-caddy/gcp/default.tfstate"
+    region = "us-east-1"
+
+    endpoints = { s3 = "https://s3.wasabisys.com" }
+    profile   = "wasabi" # CI: drop this, use AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+
+    use_lockfile   = true # S3-native state locking (OpenTofu >=1.10) — no DynamoDB
+    use_path_style = true # Wasabi: path-style addressing
+
+    # Non-AWS S3 endpoint: skip the AWS-specific preflight/checksum behavior.
+    skip_credentials_validation = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_s3_checksum            = true
   }
 }
+
+# --- Alternative: Google Cloud Storage -------------------------------------
+# terraform {
+#   backend "gcs" {
+#     bucket = "YOUR-TF-STATE-BUCKET"
+#     prefix = "career-caddy/gcp"
+#   }
+# }
