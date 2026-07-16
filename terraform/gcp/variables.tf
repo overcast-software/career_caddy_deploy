@@ -58,3 +58,32 @@ variable "anthropic_api_key" {
   default     = ""
   sensitive   = true
 }
+
+# Outbound email (SMTP). When email_host_password is set, the api service
+# switches from the console backend to real SMTP so signup/welcome + admin-notify
+# mail actually sends. host/port/user are plain env; the password lands in Secret
+# Manager (see secrets.tf). Defaults target Purelymail.
+variable "email_host" {
+  description = "SMTP host for outbound mail (e.g. Purelymail: smtp.purelymail.com)."
+  type        = string
+  default     = "smtp.purelymail.com"
+}
+
+variable "email_port" {
+  description = "SMTP port (587 = STARTTLS/TLS, 465 = implicit SSL)."
+  type        = number
+  default     = 587
+}
+
+variable "email_host_user" {
+  description = "SMTP auth user — the sending mailbox (e.g. noreply@yourdomain)."
+  type        = string
+  default     = ""
+}
+
+variable "email_host_password" {
+  description = "SMTP mailbox/app password. Empty = console backend (no real send)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

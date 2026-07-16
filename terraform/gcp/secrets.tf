@@ -11,6 +11,7 @@ locals {
     },
     var.openai_api_key != "" ? { OPENAI_API_KEY = var.openai_api_key } : {},
     var.anthropic_api_key != "" ? { ANTHROPIC_API_KEY = var.anthropic_api_key } : {},
+    var.email_host_password != "" ? { EMAIL_HOST_PASSWORD = var.email_host_password } : {},
   )
 }
 
@@ -29,8 +30,8 @@ resource "google_secret_manager_secret" "app" {
 }
 
 resource "google_secret_manager_secret_version" "app" {
-  for_each       = nonsensitive(toset(keys(local.secret_values)))
-  secret           = google_secret_manager_secret.app[each.key].id
+  for_each    = nonsensitive(toset(keys(local.secret_values)))
+  secret      = google_secret_manager_secret.app[each.key].id
   secret_data = local.secret_values[each.key]
 }
 
