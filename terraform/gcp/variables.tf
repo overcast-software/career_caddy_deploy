@@ -87,3 +87,17 @@ variable "email_host_password" {
   default     = ""
   sensitive   = true
 }
+
+# Request-log export (see logging.tf). Off by default — the consumer lives outside
+# this config, so a default apply should not create an undrained Pub/Sub topic.
+variable "enable_log_export" {
+  description = "Route Cloud Run request logs to a BigQuery dataset (see logging.tf) for SQL/BI. Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "log_export_service" {
+  description = "Which Cloud Run service's request log to export. Default `frontend` — the apex maps to it, so its log sees every request (api/events/mcp are same-origin internal hops)."
+  type        = string
+  default     = "frontend"
+}
