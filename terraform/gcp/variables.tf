@@ -101,3 +101,25 @@ variable "log_export_service" {
   type        = string
   default     = "frontend"
 }
+
+# Analytics / ops host (see analytics_host.tf) — a single VM running Metabase +
+# PACA, gated by each app's own login (Metabase Google Sign-In / PACA password),
+# no IAP/LB. Off by default. Enabling it needs enable_log_export = true (Metabase
+# reads the BigQuery request-log dataset).
+variable "enable_analytics_host" {
+  description = "Provision the Metabase + PACA analytics/ops VM (analytics_host.tf). Off by default. Requires enable_log_export=true for the BigQuery dataset the VM reads."
+  type        = bool
+  default     = false
+}
+
+variable "analytics_machine_type" {
+  description = "Machine type for the analytics VM. e2-medium (4GB) fits Metabase + PACA; bump to e2-standard-2 (8GB) if co-hosting more."
+  type        = string
+  default     = "e2-medium"
+}
+
+variable "analytics_disk_gb" {
+  description = "Boot disk size (GB) for the analytics VM."
+  type        = number
+  default     = 20
+}
