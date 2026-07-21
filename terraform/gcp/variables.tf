@@ -101,3 +101,25 @@ variable "log_export_service" {
   type        = string
   default     = "frontend"
 }
+
+# Analytics — Metabase (BI) as a Cloud Run service (see analytics.tf). Gated by
+# Metabase's own login; TLS via a Cloud Run domain mapping (no LB/caddy/VM). Off
+# by default. Enabling it needs enable_log_export = true (Metabase reads the
+# BigQuery request-log dataset).
+variable "enable_analytics_host" {
+  description = "Provision the Metabase (BI) Cloud Run service + domain mapping (analytics.tf). Off by default. Requires enable_log_export=true for the BigQuery dataset it reads."
+  type        = bool
+  default     = false
+}
+
+variable "metabase_image" {
+  description = "Metabase container image. Public Docker Hub by default; mirror to Artifact Registry for pull reliability if desired."
+  type        = string
+  default     = "docker.io/metabase/metabase:v0.51.5"
+}
+
+variable "cloudsql_proxy_image" {
+  description = "Cloud SQL Auth Proxy v2 image for the Metabase app-DB sidecar."
+  type        = string
+  default     = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1"
+}
