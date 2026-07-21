@@ -1,8 +1,0 @@
-# TLS-terminating reverse proxy for the analytics host (rendered by terraform).
-# Automatic HTTPS via ACME — requires ${metabase_site_host} to resolve to this
-# VM's static IP and firewall ports 80/443 open. The gate is Metabase's own
-# login; there is deliberately no LB/IAP.
-${metabase_site_host} {
-	encode zstd gzip
-	reverse_proxy metabase:3000
-}
