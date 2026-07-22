@@ -11,12 +11,15 @@ locals {
   }
 
   # Artifact Registry image URIs. Cloud Run cannot pull ghcr.io directly, so the
-  # public GHCR images must be MIRRORED into this AR repo first (see README).
+  # public GHCR images are MIRRORED into this AR repo first (see README).
   ar_host = "${var.ar_region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.main.repository_id}"
+  # Deploy DIGEST-pinned refs resolved from each image's :${var.image_tag} at plan
+  # time (data sources in registry.tf), so pushing a new :latest + `tofu apply`
+  # actually rolls a new revision. ar_host retained for reference/other consumers.
   images = {
-    api      = "${local.ar_host}/career_caddy_api:${var.image_tag}"
-    frontend = "${local.ar_host}/career_caddy_frontend:${var.image_tag}"
-    ai       = "${local.ar_host}/career_caddy_ai:${var.image_tag}"
+    api      = data.google_artifact_registry_docker_image.api.self_link
+    frontend = data.google_artifact_registry_docker_image.frontend.self_link
+    ai       = data.google_artifact_registry_docker_image.ai.self_link
   }
 
   # api is reached internally via the single LB host (static string → no
