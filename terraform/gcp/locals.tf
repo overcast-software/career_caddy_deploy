@@ -67,8 +67,15 @@ locals {
         GUNICORN_THREADS          = "4"
         SA_SCHEMA_ON_POST_MIGRATE = "True"
         SCREENSHOT_DIR            = "/tmp/screenshots"
-      })
-      secret_keys = ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "EMAIL_HOST_PASSWORD"]
+        },
+        # CC-204 Wasabi bucket env (empty map when the feature is off → api falls
+        # back to local FileSystemStorage). The creds are secrets, wired
+        # separately in run.tf; these are the plain bucket/endpoint/region vars.
+      local.wasabi_env)
+      secret_keys = concat(
+        ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "EMAIL_HOST_PASSWORD"],
+        local.wasabi_secret_keys, # CC-204: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+      )
     }
     events = {
       image       = local.images.api

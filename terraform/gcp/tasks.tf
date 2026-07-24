@@ -75,6 +75,9 @@ resource "google_cloud_run_v2_service" "tasks" {
       }
 
       dynamic "env" {
+        # CC-204: the tasks service's resume_parse_job worker READS the uploaded
+        # blob from the same Wasabi bucket, so it needs the plain bucket env too
+        # (local.wasabi_env is empty when the feature is off).
         for_each = merge(local.django_common, {
           GUNICORN_HOST             = "0.0.0.0"
           SA_SCHEMA_ON_POST_MIGRATE = "False"
@@ -83,7 +86,7 @@ resource "google_cloud_run_v2_service" "tasks" {
           EMAIL_BACKEND             = "django.core.mail.backends.console.EmailBackend"
           SCREENSHOT_DIR            = "/tmp/screenshots"
           CC_TASKS_ENABLED          = "True"
-        })
+        }, local.wasabi_env)
         content {
           name  = env.key
           value = env.value
@@ -97,6 +100,20 @@ resource "google_cloud_run_v2_service" "tasks" {
           value_source {
             secret_key_ref {
               secret  = local.secret_ids[env.key]
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      # CC-204 Wasabi creds for the resume-parse worker (empty when off).
+      dynamic "env" {
+        for_each = local.wasabi_secret_ids
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
               version = "latest"
             }
           }

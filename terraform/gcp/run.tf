@@ -6,11 +6,11 @@
 resource "google_cloud_run_v2_service" "lb" {
   for_each = local.lb_services
 
-  name     = each.key
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_ALL"
+  name                = each.key
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = var.deletion_protection
-  
+
   template {
     service_account = google_service_account.run.email
 
@@ -83,6 +83,22 @@ resource "google_cloud_run_v2_service" "lb" {
         }
       }
 
+      # CC-204 Wasabi creds (api only) — separate map from local.secret_ids.
+      # Empty when the feature is off. Only api writes the upload, so only api
+      # gets these here; the tasks service wires them in tasks.tf.
+      dynamic "env" {
+        for_each = each.key == "api" ? local.wasabi_secret_ids : {}
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
       dynamic "volume_mounts" {
         for_each = each.value.uses_db ? [1] : []
         content {
@@ -99,9 +115,9 @@ resource "google_cloud_run_v2_service" "lb" {
 # --- chat: internal LLM service, invoked by api via IAM (no LB) --------------
 
 resource "google_cloud_run_v2_service" "chat" {
-  name     = "chat"
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_ALL" # reachable, but IAM allows only the runtime SA
+  name                = "chat"
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_ALL"   # reachable, but IAM allows only the runtime SA
   deletion_protection = var.deletion_protection # stateless POC service — allow teardown
 
   template {
@@ -141,7 +157,7 @@ resource "google_cloud_run_v2_service" "chat" {
         value = "openai:gpt-4o-mini"
       }
 
-      
+
       dynamic "env" {
         for_each = { for k in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"] : k => k if contains(keys(local.secret_ids), k) }
         content {
@@ -157,7 +173,7 @@ resource "google_cloud_run_v2_service" "chat" {
     }
   }
 
-  
+
   depends_on = [google_project_service.apis, google_secret_manager_secret_version.app]
 }
 
