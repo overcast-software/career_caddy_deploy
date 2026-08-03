@@ -36,7 +36,12 @@ variable "image_tag" {
 variable "db_tier" {
   description = "Cloud SQL machine tier."
   type        = string
-  default     = "db-f1-micro"
+  # db-g1-small (1.7Gi) not db-f1-micro (0.6Gi): the micro tier's shared-core
+  # connection ceiling (~25) was exhausted by Cloud Run's autoscaled fan-out,
+  # causing prod-wide "remaining connection slots" 500s (2026-08-03, CC #228).
+  # Paired with CONN_MAX_AGE=0 (locals.tf) + max_connections=100 (sql.tf). Can
+  # revert to db-f1-micro once connection pooling lands (Phase 2).
+  default = "db-g1-small"
 }
 
 variable "postgres_version" {
