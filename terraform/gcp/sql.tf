@@ -21,13 +21,22 @@ resource "google_sql_database_instance" "main" {
   region           = var.region
 
   settings {
-    tier              = var.db_tier
-    edition           = "ENTERPRISE" # db-f1-micro is only valid on ENTERPRISE; the
+    tier    = var.db_tier
+    edition = "ENTERPRISE" # db-f1-micro is only valid on ENTERPRISE; the
     # API now defaults new instances to ENTERPRISE_PLUS, which rejects shared-core tiers.
-    availability_type = "ZONAL" # POC: single zone
-    deletion_protection_enabled = false # API-level lock; POC — allow teardown
-    disk_size         = 10
-    disk_autoresize   = true
+    availability_type           = "ZONAL" # POC: single zone
+    deletion_protection_enabled = false   # API-level lock; POC — allow teardown
+    disk_size                   = 10
+    disk_autoresize             = true
+
+    # Explicit connection ceiling — don't inherit the tier's low shared-core
+    # default (~25 on db-f1-micro), which Cloud Run's autoscaled fan-out
+    # exhausted (2026-08-03 prod outage, CC #228). 100 is safe on g1-small's
+    # 1.7Gi and makes the pool size deterministic across tier changes.
+    database_flags {
+      name  = "max_connections"
+      value = "100"
+    }
 
     ip_configuration {
       ipv4_enabled = true # reachable by the Cloud SQL socket proxy; no authorized networks

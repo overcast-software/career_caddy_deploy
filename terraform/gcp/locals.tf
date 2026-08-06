@@ -31,6 +31,14 @@ locals {
   django_common = {
     DEBUG         = "False"
     ALLOWED_HOSTS = "${local.base},.run.app,localhost,127.0.0.1" # .run.app: Cloud Tasks/health + same-origin nginx Host-rewrite hit services by their run.app host
+    # Close idle DB connections after each request instead of pinning them for
+    # 60s (Django default). On Cloud Run's autoscaled fan-out, persistent
+    # (CONN_MAX_AGE>0) connections accumulate idle across api/events/tasks/worker
+    # instances and exhaust the Cloud SQL slot pool — the db-f1-micro FATAL
+    # "remaining connection slots" outage (2026-08-03, CC #228). 0 = per-request
+    # connect; a connection pooler (Phase 2) removes the reconnect cost so we
+    # can shrink the tier back.
+    CONN_MAX_AGE = "0"
   }
 
   # LB-fronted services (get a serverless NEG + backend + URL-map routing).
