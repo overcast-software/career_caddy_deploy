@@ -107,6 +107,26 @@ variable "log_export_service" {
   default     = "frontend"
 }
 
+# Cost visibility (see billing.tf). Both off by default; neither is required to
+# run the app, and both exist because an unwatched spend took prod down once.
+variable "enable_billing_export" {
+  description = "Create the BigQuery dataset the Cloud Billing export writes cost data into (see billing.tf). Off by default. NOTE: terraform cannot switch the export ON — that is a console action on the billing account, and it is not retroactive."
+  type        = bool
+  default     = false
+}
+
+variable "billing_account_id" {
+  description = "Billing account id (e.g. 0X0X0X-0X0X0X-0X0X0X) to attach a monthly spend budget to. Empty (the default) creates no budget — supplying an id IS the opt-in. The account must be open; a closed account cannot hold a budget."
+  type        = string
+  default     = ""
+}
+
+variable "budget_amount_usd" {
+  description = "Monthly budget ceiling in whole USD. Alerts fire at 25/50/90/100% — the first one is the one that matters, so keep this near real expected spend rather than at a comfortable ceiling."
+  type        = number
+  default     = 50
+}
+
 # Analytics — Metabase (BI) as a Cloud Run service (see analytics.tf). Gated by
 # Metabase's own login; TLS via a Cloud Run domain mapping (no LB/caddy/VM). Off
 # by default. Enabling it needs enable_log_export = true (Metabase reads the

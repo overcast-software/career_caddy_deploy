@@ -22,8 +22,13 @@ Works with both **Terraform** and **OpenTofu** (the `google` provider is identic
   nginx path-routes `/api`, `/api/v1/events`, and `/mcp` **same-origin** to the
   siblings, so there is **no load balancer and no CORS** — the whole app (incl. the
   public MCP at `<domain>/mcp`) is served on the apex alone.
+- **Cost visibility** (`billing.tf`, both off by default) — a BigQuery dataset for
+  the Cloud Billing export, and a monthly spend **budget** alerting at
+  25/50/90/100%. Neither is needed to run the app; both exist because an
+  unwatched spend took prod down on 2026-08-17. See "Three things GCP makes you
+  do" — switching the export on is a console step.
 
-## Two things GCP makes you do
+## Three things GCP makes you do
 
 1. **Mirror the images into Artifact Registry.** Cloud Run cannot pull `ghcr.io`
    directly. After `terraform apply` creates the AR repo, mirror the three public
@@ -39,6 +44,23 @@ Works with both **Terraform** and **OpenTofu** (the `google` provider is identic
 2. **Verify the domain first.** The managed TLS cert only provisions after the apex
    A/AAAA records resolve to Google, and the domain mapping requires the domain be
    verified in Google Search Console under the deploying account.
+
+3. **Switch on the billing export** (only if you set `enable_billing_export`).
+   Terraform creates the BigQuery dataset but **cannot turn the export on** — no
+   such resource exists in the google provider (verified against its documented
+   billing resources: `billing_account_iam`, `billing_budget`,
+   `billing_project_info`, `billing_subaccount`, and the
+   `logging_billing_account_*` sinks, which route billing-account *logs*, not
+   cost data). In the console:
+
+   **Billing → Billing export → BigQuery export → Standard usage cost → Edit
+   settings**, then pick this project and the `career_caddy_billing` dataset
+   (the `billing_dataset` output names it).
+
+   ⚠️ **The export is not retroactive.** It starts collecting the day you enable
+   it; spend before that point is unrecoverable. Turn it on before anything else
+   you are tempted to do first. First rows can take up to ~24h to land, so an
+   empty table on day one is expected, not a failure.
 
 ## Deploy
 
