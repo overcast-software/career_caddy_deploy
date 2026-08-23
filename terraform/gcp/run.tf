@@ -13,6 +13,7 @@ resource "google_cloud_run_v2_service" "lb" {
 
   template {
     service_account = google_service_account.run.email
+    timeout         = each.value.timeout
 
     scaling {
       min_instance_count = each.value.min_scale
@@ -39,6 +40,10 @@ resource "google_cloud_run_v2_service" "lb" {
 
       resources {
         limits = { cpu = each.value.cpu, memory = each.value.memory }
+        # Explicit per service in locals.tf. Leaving this unset inherits
+        # cpu_idle=false (CPU always allocated), which bills round the clock
+        # on every min_scale>0 service and raises no error to tell you.
+        cpu_idle = each.value.cpu_idle
       }
 
       # Plain config env.
@@ -138,6 +143,10 @@ resource "google_cloud_run_v2_service" "chat" {
 
       resources {
         limits = { cpu = "1", memory = "1Gi" }
+        # Request-driven: chat only works while api is calling it. Already
+        # min_scale=0, so this just stops it billing full CPU for the idle
+        # tail of each scale-down.
+        cpu_idle = true
       }
 
       env {

@@ -72,6 +72,11 @@ resource "google_cloud_run_v2_service" "tasks" {
 
       resources {
         limits = { cpu = "1", memory = "1Gi" }
+        # Push-driven: every unit of work arrives as a Cloud Tasks HTTP
+        # request, so there is never anything to do off-request. This is the
+        # shape `worker` is migrating toward (CC-200) precisely because it
+        # can scale to zero and throttle CPU, which the qcluster cannot.
+        cpu_idle = true
       }
 
       dynamic "env" {

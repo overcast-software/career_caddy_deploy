@@ -42,15 +42,38 @@ locals {
   }
 
   # LB-fronted services (get a serverless NEG + backend + URL-map routing).
+  #
+  # ── cpu_idle: SET IT DELIBERATELY ON EVERY ENTRY ─────────────────────────
+  # This key was absent until 2026-08-23, so every service here inherited the
+  # provider default `cpu_idle = false` — CPU ALWAYS ALLOCATED, billed around
+  # the clock on anything with min_scale > 0, whether or not a request is in
+  # flight. Nobody chose that; it was the default nobody named.
+  #
+  #   cpu_idle = true   CPU billed only while a request is in flight. A
+  #                     min_scale=1 instance still stays warm, so there is no
+  #                     cold start — you keep the latency, drop the idle CPU.
+  #                     Correct for anything that only works during requests.
+  #   cpu_idle = false  CPU allocated between requests. Required ONLY by a
+  #                     background daemon with no request to ride on — see
+  #                     worker.tf, where throttling would stall the qcluster
+  #                     pull loop outright.
+  #
+  # If you add a service, state cpu_idle explicitly. The default is wrong for
+  # nearly everything and it is expensive in a way that produces no error.
   lb_services = {
     api = {
-      image       = local.images.api
-      command     = null # image entrypoint: migrate + gunicorn
-      port        = 8000
-      cpu         = "1"
-      memory      = "1Gi"
-      min_scale   = 1
-      max_scale   = 4
+      image     = local.images.api
+      command   = null # image entrypoint: migrate + gunicorn
+      port      = 8000
+      cpu       = "1"
+      memory    = "1Gi"
+      min_scale = 1
+      max_scale = 4
+      # Warm but not burning: gunicorn does nothing between requests, so
+      # always-allocated CPU bought nothing. min_scale=1 still keeps the
+      # instance resident, which is what actually makes the page feel snappy.
+      cpu_idle    = true
+      timeout     = "300s"
       uses_db     = true
       health_path = "/api/v1/healthcheck/"
       environment = merge(local.django_common, {
@@ -86,13 +109,26 @@ locals {
       )
     }
     events = {
-      image       = local.images.api
-      command     = ["uvicorn", "job_hunting.sse_asgi:app", "--host", "0.0.0.0", "--port", "8001"]
-      port        = 8001
-      cpu         = "1"
-      memory      = "512Mi"
-      min_scale   = 1
-      max_scale   = 2
+      image   = local.images.api
+      command = ["uvicorn", "job_hunting.sse_asgi:app", "--host", "0.0.0.0", "--port", "8001"]
+      port    = 8001
+      cpu     = "1"
+      memory  = "512Mi"
+      # Scale to zero. An SSE stream is an in-flight request, so a connected
+      # client holds CPU for as long as it is subscribed; with nobody
+      # connected there is nothing to keep resident. The Hub reopens its
+      # LISTEN connection on cold start, and a NOTIFY lost while no client is
+      # attached was already fire-and-forget (sse_asgi.py: the row is the
+      # source of truth and pollable.js is the fallback).
+      min_scale = 0
+      max_scale = 2
+      cpu_idle  = true
+      # 3600s, not the 300s default. The stream is long-lived by design and
+      # nginx already allows an hour (docker-entrypoint.d/10-api-proxy.sh
+      # proxy_read_timeout). At 300s every stream was being cut and rebuilt
+      # twelve times an hour, each cycle costing a token mint and a fresh
+      # connection for no reason.
+      timeout     = "3600s"
       uses_db     = true
       health_path = "/healthz"
       environment = merge(local.django_common, { SA_SCHEMA_ON_POST_MIGRATE = "False" })
@@ -106,6 +142,8 @@ locals {
       memory      = "512Mi" # Cloud Run rejects <512Mi when CPU is always-allocated
       min_scale   = 0
       max_scale   = 2
+      cpu_idle    = true
+      timeout     = "300s"
       uses_db     = false
       health_path = "/"
       # Search indexing: this is PROD (careercaddy.online) → indexable, so
@@ -135,6 +173,8 @@ locals {
       memory      = "512Mi"
       min_scale   = 0
       max_scale   = 2
+      cpu_idle    = true
+      timeout     = "300s"
       uses_db     = false
       health_path = "/mcp"
       environment = { CC_API_BASE_URL = local.api_base_url, FASTMCP_HOST = "0.0.0.0", FASTMCP_PORT = "8000" }
