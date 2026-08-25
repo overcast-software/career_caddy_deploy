@@ -128,7 +128,14 @@ resource "google_cloud_run_v2_service" "metabase" {
     service_account = google_service_account.metabase[0].email
 
     scaling {
-      min_instance_count = 1 # Metabase boots slowly — keep one warm (no cold starts)
+      # Was 1 ("Metabase boots slowly — keep one warm"). Dropped to 0 on
+      # 2026-08-23: this is the largest memory reservation in the project
+      # (2Gi) and it was being held around the clock for a BI tool that one
+      # person opens occasionally. cpu_idle=true already meant the idle cost
+      # was memory-only, but memory-only 24/7 is still the single biggest
+      # avoidable line here. A JVM cold start on the rare open is the right
+      # trade; flip back to 1 if it ever becomes a daily-use dashboard.
+      min_instance_count = 0
       max_instance_count = 1 # single instance against one app DB
     }
 
