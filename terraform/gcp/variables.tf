@@ -128,3 +128,13 @@ variable "cloudsql_proxy_image" {
   type        = string
   default     = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1"
 }
+
+# Alerting — see monitoring.tf. Off by default; setting an address provisions a
+# notification channel, a log-based metric and the alert policy. Kept out of the
+# repo because this is public: put the real value in terraform.tfvars, which is
+# gitignored.
+variable "sse_alert_email" {
+  description = "Operator email for prod alerts (currently the SSE LISTEN alert, monitoring.tf). Empty disables all alerting resources. Set it in the gitignored terraform.tfvars — never commit an address here."
+  type        = string
+  default     = ""
+}

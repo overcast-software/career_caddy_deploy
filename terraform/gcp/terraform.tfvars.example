@@ -36,3 +36,10 @@ image_tag = "latest"
 # email_host = "smtp.purelymail.com", email_port = 587, EMAIL_USE_TLS = True.
 # email_host_user     = "noreply@yourdomain"
 # email_host_password = "..."
+
+# Prod alerting (monitoring.tf). Empty = no alerting resources are created at
+# all. Setting an address provisions an email notification channel plus the SSE
+# LISTEN alert, which pages when the events service can no longer deliver — a
+# failure that is INVISIBLE from the client, since the stream keeps returning
+# 200 and sending keepalives either way (see CC-252).
+# sse_alert_email = "you@yourdomain"
