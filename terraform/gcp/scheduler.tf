@@ -23,13 +23,27 @@ resource "google_project_service" "cloudscheduler" {
 # name -> cron. Crons mirror the django-q2 Schedule intervals (migration in the
 # comment) and the SCHEDULE_REGISTRY interval_seconds on the api side:
 #   sweep_stale_scrape_claims    0086  every 5 min
-#   federation_dispatch_sweep    0090  every 1 min
 #   prune_scrape_html            0109  hourly
 #   sweep_stale_unclaimed_holds  0113  every 5 min
+#
+# DROPPED: federation_dispatch_sweep (0090, every 1 min). It was the highest-
+# frequency job here by an order of magnitude — 1,440 fires/day, ~70% of all
+# scheduler traffic — re-driving outbound ActivityPub deliveries for a
+# federation surface that is not reachable in prod: inbound delivery 405s at
+# the apex nginx handler and the actor/webfinger endpoints return SPA HTML, so
+# nothing is federating either way. The sweep is not a runaway (dispatch_one
+# dead-letters at retry 6 on a [60, 300, 1800, 14400, 86400] backoff), so in
+# steady state it is a once-a-minute query that finds nothing — cheap, but
+# permanently on for a feature that does not work.
+#
+# NOTE this only removes the Cloud Scheduler half. The django-q2 Schedule row
+# from migration 0090 still fires the same sweep every 60s on the qcluster
+# worker (see the double-fire note above); that half goes away with the CC-208
+# teardown, or needs its own migration. Restore this entry when federation is
+# actually reachable.
 locals {
   scheduled_sweeps = {
     sweep_stale_scrape_claims   = "*/5 * * * *"
-    federation_dispatch_sweep   = "* * * * *"
     prune_scrape_html           = "0 * * * *"
     sweep_stale_unclaimed_holds = "*/5 * * * *"
   }
