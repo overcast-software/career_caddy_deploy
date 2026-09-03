@@ -8,6 +8,26 @@ resource "google_artifact_registry_repository" "main" {
   description   = "Mirror of the public GHCR Career Caddy images for Cloud Run."
   labels        = local.common_labels
 
+  # The mirror had accumulated 7.6GB of stale layers by 2026-09 (storage bills
+  # at $0.10/GB-mo). Keep the newest 5 versions of each image — enough for the
+  # standing move-:latest-back rollback recipe — and delete anything older than
+  # 30 days beyond those. KEEP policies override DELETE matches.
+  cleanup_policy_dry_run = false
+  cleanup_policies {
+    id     = "keep-recent-5"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 5
+    }
+  }
+  cleanup_policies {
+    id     = "delete-older-than-30d"
+    action = "DELETE"
+    condition {
+      older_than = "2592000s"
+    }
+  }
+
   depends_on = [google_project_service.apis]
 }
 
