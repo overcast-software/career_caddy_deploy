@@ -67,12 +67,13 @@ locals {
       port      = 8000
       cpu       = "1"
       memory    = "1Gi"
-      min_scale = 1
+      # min_scale=1 kept an instance warm for snappy first hits, but even the
+      # throttled idle rate is ~$10/mo — for traffic that is ~zero real users
+      # (2026-09-03 cost-down). Cold start is a few seconds on the first request
+      # after idle; acceptable until there are users to feel it.
+      min_scale = 0
       max_scale = 4
-      # Warm but not burning: gunicorn does nothing between requests, so
-      # always-allocated CPU bought nothing. min_scale=1 still keeps the
-      # instance resident, which is what actually makes the page feel snappy.
-      cpu_idle    = true
+      cpu_idle  = true
       timeout     = "300s"
       uses_db     = true
       health_path = "/api/v1/healthcheck/"
