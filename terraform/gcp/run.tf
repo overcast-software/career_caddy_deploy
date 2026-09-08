@@ -114,6 +114,29 @@ resource "google_cloud_run_v2_service" "lb" {
     }
   }
 
+
+  # CC-186 — converge the perpetual `scaling: 0 -> null` diff.
+  #
+  # The Cloud Run v2 API ALWAYS returns a SERVICE-level `scaling` block
+  # (manual_instance_count = 0, min_instance_count = 0). This module does not
+  # declare one, so every plan reported it as drift and `tofu plan` read
+  # "6 to change" forever without ever converging. Verified 2026-09-07: that
+  # was the ONLY change in a clean plan across all six services.
+  #
+  # Ignored rather than declared, deliberately. Declaring the block means
+  # writing `manual_instance_count`, which is the MANUAL-scaling surface —
+  # setting it to make a cosmetic diff go away risks moving a service off
+  # request-based scaling, which is a real behaviour change to silence a
+  # no-op. Ignoring cannot change infrastructure.
+  #
+  # This masks NOTHING this module manages: min/max live in the TEMPLATE-level
+  # `template { scaling { ... } }` block above, which is a different attribute
+  # and is still fully diffed. If service-level scaling is ever adopted on
+  # purpose, delete this and declare it properly.
+  lifecycle {
+    ignore_changes = [scaling]
+  }
+
   depends_on = [google_project_service.apis, google_secret_manager_secret_version.app]
 }
 
@@ -182,6 +205,29 @@ resource "google_cloud_run_v2_service" "chat" {
     }
   }
 
+
+
+  # CC-186 — converge the perpetual `scaling: 0 -> null` diff.
+  #
+  # The Cloud Run v2 API ALWAYS returns a SERVICE-level `scaling` block
+  # (manual_instance_count = 0, min_instance_count = 0). This module does not
+  # declare one, so every plan reported it as drift and `tofu plan` read
+  # "6 to change" forever without ever converging. Verified 2026-09-07: that
+  # was the ONLY change in a clean plan across all six services.
+  #
+  # Ignored rather than declared, deliberately. Declaring the block means
+  # writing `manual_instance_count`, which is the MANUAL-scaling surface —
+  # setting it to make a cosmetic diff go away risks moving a service off
+  # request-based scaling, which is a real behaviour change to silence a
+  # no-op. Ignoring cannot change infrastructure.
+  #
+  # This masks NOTHING this module manages: min/max live in the TEMPLATE-level
+  # `template { scaling { ... } }` block above, which is a different attribute
+  # and is still fully diffed. If service-level scaling is ever adopted on
+  # purpose, delete this and declare it properly.
+  lifecycle {
+    ignore_changes = [scaling]
+  }
 
   depends_on = [google_project_service.apis, google_secret_manager_secret_version.app]
 }
