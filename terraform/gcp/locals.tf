@@ -62,18 +62,18 @@ locals {
   # nearly everything and it is expensive in a way that produces no error.
   lb_services = {
     api = {
-      image     = local.images.api
-      command   = null # image entrypoint: migrate + gunicorn
-      port      = 8000
-      cpu       = "1"
-      memory    = "1Gi"
+      image   = local.images.api
+      command = null # image entrypoint: migrate + gunicorn
+      port    = 8000
+      cpu     = "1"
+      memory  = "1Gi"
       # min_scale=1 kept an instance warm for snappy first hits, but even the
       # throttled idle rate is ~$10/mo — for traffic that is ~zero real users
       # (2026-09-03 cost-down). Cold start is a few seconds on the first request
       # after idle; acceptable until there are users to feel it.
-      min_scale = 0
-      max_scale = 4
-      cpu_idle  = true
+      min_scale   = 0
+      max_scale   = 4
+      cpu_idle    = true
       timeout     = "300s"
       uses_db     = true
       health_path = "/api/v1/healthcheck/"
@@ -105,7 +105,9 @@ locals {
         # separately in run.tf; these are the plain bucket/endpoint/region vars.
       local.wasabi_env)
       secret_keys = concat(
-        ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "EMAIL_HOST_PASSWORD"],
+        # LOGFIRE_TOKEN (CC-231) is optional like the AI keys — run.tf:79 only
+        # wires keys whose secret exists, so an unset var provisions nothing.
+        ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "EMAIL_HOST_PASSWORD", "LOGFIRE_TOKEN"],
         local.wasabi_secret_keys, # CC-204: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
       )
     }
@@ -133,7 +135,7 @@ locals {
       uses_db     = true
       health_path = "/healthz"
       environment = merge(local.django_common, { SA_SCHEMA_ON_POST_MIGRATE = "False" })
-      secret_keys = ["SECRET_KEY", "DATABASE_URL"]
+      secret_keys = ["SECRET_KEY", "DATABASE_URL", "LOGFIRE_TOKEN"] # LOGFIRE_TOKEN optional (CC-231)
     }
     frontend = {
       image       = local.images.frontend

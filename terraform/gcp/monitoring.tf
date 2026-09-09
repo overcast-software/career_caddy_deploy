@@ -180,3 +180,116 @@ output "sse_alert_policy" {
   description = "Name of the SSE LISTEN alert policy (null unless sse_alert_email is set)."
   value       = var.sse_alert_email != "" ? google_monitoring_alert_policy.sse_listen_down[0].name : null
 }
+
+# --- api server errors (CC-231) ---------------------------------------------
+#
+# WHY. During CC-228 the api was returning 500s ("remaining connection slots are
+# reserved") and nobody was paged: logfire had ~8 api spans in two days because
+# LOGFIRE_TOKEN was never set on the Cloud Run services (see var.logfire_token),
+# so the incident had to be dug out of Cloud Logging after a user hit it. This
+# alert is the floor that does not depend on logfire being configured at all.
+#
+# WHAT IT WATCHES. The Cloud Run request log for the `api` service is written by
+# the platform for every request, with `httpRequest.status` set — so a 5xx is a
+# positive, exactly-zero-when-healthy signal, the same property the SSE alert
+# above relies on. It deliberately does NOT use `severity >= ERROR` on the app
+# log: Cloud Run stamps everything a container writes to stderr as ERROR, and
+# Django's console logger writes INFO lines there, so that filter would page on
+# a healthy request. The "remaining connection slots" clause is the CC-228
+# signature specifically — Cloud SQL refusing connections shows up in the
+# container log before it shows up as a 5xx.
+#
+# THRESHOLD. Any single 5xx in a five-minute window. The hosted instance serves
+# ~zero real users (2026-09 cost-down), so one error is signal, not noise; raise
+# the threshold when traffic makes it chatty. Shares the SSE alert's guard and
+# email channel — one `sse_alert_email` switches all prod alerting on.
+
+locals {
+  api_error_filter = <<-EOT
+    resource.type = "cloud_run_revision"
+    resource.labels.service_name = "api"
+    (
+      (logName = "projects/${var.project_id}/logs/run.googleapis.com%2Frequests" AND httpRequest.status >= 500)
+      OR textPayload:"remaining connection slots"
+    )
+  EOT
+}
+
+resource "google_logging_metric" "api_server_errors" {
+  count = local.sse_alert
+
+  name        = "${local.name}-api-server-errors"
+  project     = var.project_id
+  description = "Count of 5xx responses from the api service, plus Cloud SQL connection-slot exhaustion lines. Zero in a healthy system; see CC-231 / CC-228."
+  filter      = local.api_error_filter
+
+  metric_descriptor {
+    metric_kind  = "DELTA"
+    value_type   = "INT64"
+    unit         = "1"
+    display_name = "api server errors (5xx)"
+  }
+}
+
+resource "google_monitoring_alert_policy" "api_server_errors" {
+  count = local.sse_alert
+
+  project      = var.project_id
+  display_name = "api is returning server errors"
+  combiner     = "OR"
+  user_labels  = local.common_labels
+
+  conditions {
+    display_name = "api 5xx > 0 in 5m"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "metric.type=\"logging.googleapis.com/user/${google_logging_metric.api_server_errors[0].name}\"",
+        "resource.type=\"cloud_run_revision\"",
+      ])
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_DELTA"
+      }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.sse_alert_email[0].id]
+
+  documentation {
+    subject   = "api is returning 5xx in prod"
+    mime_type = "text/markdown"
+    content   = <<-EOT
+      The `api` Cloud Run service returned at least one server error in the last
+      five minutes, or Cloud SQL refused a connection ("remaining connection
+      slots are reserved" — the CC-228 signature).
+
+      Find the requests:
+
+      ```
+      gcloud logging read 'resource.type="cloud_run_revision"
+        AND resource.labels.service_name="api"
+        AND httpRequest.status>=500' \
+        --project=${var.project_id} --freshness=1h --limit=20
+      ```
+
+      If `logfire_token` is set, the exception spans are in Logfire under
+      `service_name=career_caddy_api`; if it is not, the traceback is in the
+      container log of the same revision (`textPayload`, severity ERROR).
+
+      Prior art: CC-228 (connection-slot exhaustion), CC-231 (this alert).
+    EOT
+  }
+
+  depends_on = [google_project_service.monitoring]
+}
+
+output "api_error_alert_policy" {
+  description = "Name of the api 5xx alert policy (null unless sse_alert_email is set)."
+  value       = var.sse_alert_email != "" ? google_monitoring_alert_policy.api_server_errors[0].name : null
+}

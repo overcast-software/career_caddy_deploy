@@ -96,6 +96,19 @@ variable "email_host_password" {
   sensitive   = true
 }
 
+# Observability (CC-231). The api, events and tasks services all run
+# job_hunting/logfire_setup.py at startup, which returns before configuring
+# anything when LOGFIRE_TOKEN is unset — so with this empty, prod ships NO
+# request or exception spans anywhere, and the only trace of an incident is
+# Cloud Logging. Empty is the self-hoster default; the hosted instance sets it
+# in the gitignored terraform.tfvars.
+variable "logfire_token" {
+  description = "Pydantic Logfire write token for the Django services (api, events, tasks). Empty = logfire instrumentation is a silent no-op. Set in the gitignored terraform.tfvars, never here."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 # Request-log export (see logging.tf). Off by default — the consumer lives outside
 # this config, so a default apply should not create an undrained Pub/Sub topic.
 variable "enable_log_export" {
@@ -137,7 +150,7 @@ variable "cloudsql_proxy_image" {
 # repo because this is public: put the real value in terraform.tfvars, which is
 # gitignored.
 variable "sse_alert_email" {
-  description = "Operator email for prod alerts (currently the SSE LISTEN alert, monitoring.tf). Empty disables all alerting resources. Set it in the gitignored terraform.tfvars — never commit an address here."
+  description = "Operator email for prod alerts (monitoring.tf: the SSE LISTEN alert and the api 5xx alert). Empty disables all alerting resources. Set it in the gitignored terraform.tfvars — never commit an address here."
   type        = string
   default     = ""
 }

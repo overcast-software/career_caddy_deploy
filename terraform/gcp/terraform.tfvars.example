@@ -37,9 +37,15 @@ image_tag = "latest"
 # email_host_user     = "noreply@yourdomain"
 # email_host_password = "..."
 
+# Observability (CC-231). Empty = the api/events/tasks services run with logfire
+# as a silent no-op and ship no request or exception spans anywhere. Set a
+# Pydantic Logfire write token (→ Secret Manager) to turn instrumentation on.
+# logfire_token = "pylf_v1_..."
+
 # Prod alerting (monitoring.tf). Empty = no alerting resources are created at
-# all. Setting an address provisions an email notification channel plus the SSE
-# LISTEN alert, which pages when the events service can no longer deliver — a
-# failure that is INVISIBLE from the client, since the stream keeps returning
-# 200 and sending keepalives either way (see CC-252).
+# all. Setting an address provisions an email notification channel plus two
+# alerts: the SSE LISTEN alert, which pages when the events service can no
+# longer deliver — a failure that is INVISIBLE from the client, since the stream
+# keeps returning 200 and sending keepalives either way (see CC-252) — and the
+# api 5xx alert, which pages on any server error the api returns (CC-231).
 # sse_alert_email = "you@yourdomain"
