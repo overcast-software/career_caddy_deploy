@@ -114,7 +114,7 @@ resource "google_cloud_run_v2_service" "tasks" {
       # did not.
       dynamic "env" {
         for_each = {
-          for k in ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"] :
+          for k in ["SECRET_KEY", "DATABASE_URL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "LOGFIRE_TOKEN"] :
           k => k if contains(keys(local.secret_ids), k)
         }
         content {

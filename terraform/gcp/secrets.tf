@@ -12,6 +12,7 @@ locals {
     var.openai_api_key != "" ? { OPENAI_API_KEY = var.openai_api_key } : {},
     var.anthropic_api_key != "" ? { ANTHROPIC_API_KEY = var.anthropic_api_key } : {},
     var.email_host_password != "" ? { EMAIL_HOST_PASSWORD = var.email_host_password } : {},
+    var.logfire_token != "" ? { LOGFIRE_TOKEN = var.logfire_token } : {},
   )
 }
 
